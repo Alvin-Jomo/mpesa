@@ -1,0 +1,334 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPesa Payment Gateway</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6a11cb;
+            --secondary-color: #2575fc;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .payment-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: white;
+            position: relative;
+            overflow: hidden;
+            border: none;
+        }
+        
+        .payment-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-container img {
+            height: 60px;
+            margin-bottom: 15px;
+            border-radius: 50%;
+            border: 3px solid var(--light-color);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo-container h3 {
+            color: var(--dark-color);
+            font-weight: 700;
+            margin: 10px 0 0;
+            position: relative;
+            display: inline-block;
+        }
+        
+        .logo-container h3::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: 3px;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: var(--dark-color);
+            margin-bottom: 8px;
+        }
+        
+        .form-control {
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(106, 17, 203, 0.25);
+        }
+        
+        .form-text {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .btn-mpesa {
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            width: 100%;
+            padding: 14px;
+            font-weight: 600;
+            color: white;
+            border-radius: 8px;
+            transition: all 0.3s;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-size: 0.95rem;
+            margin-top: 10px;
+        }
+        
+        .btn-mpesa:hover {
+            background: linear-gradient(90deg, #5a0cb5, #1c6ae8);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(106, 17, 203, 0.3);
+        }
+        
+        .btn-mpesa:active {
+            transform: translateY(0);
+        }
+        
+        #responseMessage {
+            transition: all 0.3s;
+        }
+        
+        .alert {
+            border-radius: 8px;
+            padding: 15px 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .alert-success {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-color: rgba(40, 167, 69, 0.2);
+        }
+        
+        .alert-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-color: rgba(220, 53, 69, 0.2);
+        }
+        
+        .btn-sm {
+            padding: 5px 15px;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 576px) {
+            .payment-container {
+                padding: 30px 20px;
+            }
+            
+            .logo-container img {
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="payment-container">
+            <div class="logo-container">
+                <img src="{% static 'images/alvin.jpg' %}" alt="Alvo The Boss">
+                <h3>Alvo The Boss Payment</h3>
+            </div>
+            
+            <form id="paymentForm" method="POST" action="{% url 'stk_push' %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="phone" class="form-label">Phone Number (254XXXXXXXXX)</label>
+                    <input type="tel" class="form-control" id="phone" name="phone"
+                           pattern="254[0-9]{9}" 
+                           placeholder="254712345678" required>
+                    <div class="form-text">Must start with 254 followed by 9 digits</div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="amount" class="form-label">Amount (KES)</label>
+                    <input type="number" class="form-control" id="amount" name="amount"
+                           min="1" max="150000" value="10" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="reference" class="form-label">Payment Reference</label>
+                    <input type="text" class="form-control" id="reference" name="reference"
+                           placeholder="Order #123" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-mpesa">
+                    <span id="btnText">Request MPesa Prompt</span>
+                    <span id="spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                </button>
+            </form>
+            
+            <div id="responseMessage" class="mt-4"></div>
+        </div>
+    </div>
+
+    <script>
+    // Track if a request is already in progress
+    let isProcessing = false;
+
+    document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Prevent multiple submissions
+        if (isProcessing) {
+            return;
+        }
+        
+        // Set processing flag
+        isProcessing = true;
+        
+        // Show loading state
+        const btnText = document.getElementById('btnText');
+        const spinner = document.getElementById('spinner');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        btnText.textContent = 'Processing...';
+        spinner.classList.remove('d-none');
+        submitBtn.disabled = true;
+        
+        // Get form values
+        const phone = document.getElementById('phone').value.replace(/\D/g, '').substring(0, 12);
+        const amount = document.getElementById('amount').value;
+        const reference = document.getElementById('reference').value.substring(0, 20);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const responseDiv = document.getElementById('responseMessage');
+        
+        // Clear previous messages
+        responseDiv.innerHTML = '<div class="text-center my-3"><div class="spinner-border text-primary"></div></div>';
+        
+        // Validation
+        if (!phone.startsWith('254') || phone.length !== 12) {
+            showError('Please enter a valid Safaricom number (254XXXXXXXXX)');
+            resetButton();
+            isProcessing = false;
+            submitBtn.disabled = false;
+            return;
+        }
+        
+        if (!amount || isNaN(amount) || parseFloat(amount) < 1) {
+            showError('Please enter a valid amount (minimum 1 KES)');
+            resetButton();
+            isProcessing = false;
+            submitBtn.disabled = false;
+            return;
+        }
+        
+        try {
+            const response = await fetch("{% url 'stk_push' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: new URLSearchParams({
+                    'phone': phone,
+                    'amount': amount,
+                    'reference': reference,
+                    'csrfmiddlewaretoken': csrfToken
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                responseDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h5>✅ Payment Request Sent!</h5>
+                        <p>Check your phone <strong>${phone}</strong></p>
+                        <p>Amount: <strong>KES ${amount}</strong></p>
+                        <p class="small">${data.CustomerMessage || 'Check your phone for STK push'}</p>
+                        <button onclick="window.location.reload()" class="btn btn-sm btn-success">
+                            Send Another Payment
+                        </button>
+                    </div>
+                `;
+                
+                // Reset form after successful submission
+                e.target.reset();
+            } else {
+                showError(data.message || 'Payment request failed. Please try again.');
+            }
+        } catch (error) {
+            showError('Network error - please try again');
+            console.error('Payment error:', error);
+        } finally {
+            resetButton();
+            isProcessing = false;
+            submitBtn.disabled = false;
+        }
+    });
+    
+    function showError(message) {
+        const responseDiv = document.getElementById('responseMessage');
+        responseDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <h5>⚠️ Payment Failed</h5>
+                <p>${message}</p>
+                <button onclick="window.location.reload()" class="btn btn-sm btn-outline-danger">
+                    Try Again
+                </button>
+            </div>
+        `;
+    }
+    
+    function resetButton() {
+        document.getElementById('btnText').textContent = 'Request MPesa Prompt';
+        document.getElementById('spinner').classList.add('d-none');
+    }
+    
+    // Auto-format phone number
+    document.getElementById('phone').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (!value.startsWith('254') && value.length > 0) {
+            value = '254' + value;
+        }
+        e.target.value = value.substring(0, 12);
+    });
+    </script>
+</body>
+</html>
