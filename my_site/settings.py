@@ -130,13 +130,14 @@ MPESA_INITIATOR_USERNAME = 'testapi'
 MPESA_INITIATOR_SECURITY_CREDENTIAL = 'Safaricom123!!'
 MPESA_CALLBACK_URL = 'https://mpesa-ifvv.onrender.com/callback/'
 
-# Cache configuration
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'TIMEOUT': 15,  # 5 minutes
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000
-        }
-    }
-}
+# # Cache configuration
+#
+# HES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+#         'TIMEOUT': 15,  # 5 minutes
+#         'OPTIONS': {
+#             'MAX_ENTRIES': 1000
+#         }
+#     }
+# }
