@@ -141,6 +141,8 @@ MPESA_INITIATOR_USERNAME = 'testapi'
 
 MPESA_INITIATOR_SECURITY_CREDENTIAL = 'Safaricom999!*!'
 
+MPESA_CALLBACK_URL = 'https://mpesa-ifvv.onrender.com/callback'  # Replace with your actual callback URL
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',

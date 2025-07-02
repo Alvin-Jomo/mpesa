@@ -7,6 +7,7 @@
     <title>MPesa Payment Gateway</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="shortcut icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
     <style>
         :root {
             --primary-color: #6a11cb;
@@ -230,217 +231,188 @@
     </div>
 
     <script>
-    // Track if a request is already in progress
+    // Global variables
     let isProcessing = false;
-    // Track the current checkout request ID
-let currentCheckoutRequestId = null;
+    let currentCheckoutRequestId = null;
+    let statusCheckInterval = null;
 
-document.getElementById('paymentForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    if (isProcessing) return;
-    isProcessing = true;
-    
-    // UI Loading state
-    const btnText = document.getElementById('btnText');
-    const spinner = document.getElementById('spinner');
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    btnText.textContent = 'Processing...';
-    spinner.classList.remove('d-none');
-    submitBtn.disabled = true;
-    
-    // Clear previous messages
-    const responseDiv = document.getElementById('responseMessage');
-    responseDiv.innerHTML = '';
-    document.getElementById('statusChecker').classList.add('d-none');
-    
-    // Get form values
-    const phone = document.getElementById('phone').value.replace(/\D/g, '').substring(0, 12);
-    const amount = document.getElementById('amount').value;
-    const reference = document.getElementById('reference').value.substring(0, 20);
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
-    try {
-        const response = await fetch("{% url 'stk_push' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfToken
-            },
-            body: new URLSearchParams({
-                'phone': phone,
-                'amount': amount,
-                'reference': reference,
-                'csrfmiddlewaretoken': csrfToken
-            })
-        });
+    document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
         
-        const data = await response.json();
+        // Prevent multiple submissions
+        if (isProcessing) return;
+        isProcessing = true;
         
-        if (data.status === 'success') {
-            responseDiv.innerHTML = `
-                <div class="alert alert-success">
-                    <h5>✅ Payment Request Sent!</h5>
-                    <p>Check your phone <strong>${phone}</strong></p>
-                    <p>Amount: <strong>KES ${amount}</strong></p>
-                    <p class="small">${data.CustomerMessage || 'Check your phone for STK push'}</p>
-                </div>
-            `;
-            
-            // Store the checkout request ID
-            currentCheckoutRequestId = data.CheckoutRequestID;
-            
-            // Show status checker and start checking
-            document.getElementById('statusChecker').classList.remove('d-none');
-            startStatusChecking();
-        } else {
-            showError(data.message || 'Payment request failed. Please try again.');
-        }
-    } catch (error) {
-        showError('Network error - please try again');
-        console.error('Payment error:', error);
-    } finally {
-        resetButton();
-        isProcessing = false;
-        submitBtn.disabled = false;
-    }
-});
-
-function startStatusChecking() {
-    // Clear any existing interval
-    if (statusCheckInterval) {
+        // UI Loading state
+        const btnText = document.getElementById('btnText');
+        const spinner = document.getElementById('spinner');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        btnText.textContent = 'Processing...';
+        spinner.classList.remove('d-none');
+        submitBtn.disabled = true;
+        
+        // Clear previous messages and status checks
+        const responseDiv = document.getElementById('responseMessage');
+        responseDiv.innerHTML = '';
+        document.getElementById('statusChecker').classList.add('d-none');
         clearInterval(statusCheckInterval);
-    }
-    
-    // First check immediately
-    checkPaymentStatus();
-    
-    // Then check every 5 seconds (adjust as needed)
-    statusCheckInterval = setInterval(checkPaymentStatus, 5000);
-}
-
-async function checkPaymentStatus() {
-    if (!currentCheckoutRequestId) return;
-    
-    try {
-        const response = await fetch(`{% url 'check_status' %}?checkout_request_id=${currentCheckoutRequestId}`);
-        const data = await response.json();
         
-        if (data.status && data.status !== 'pending') {
-            // We have a final status - stop checking
-            clearInterval(statusCheckInterval);
-            document.getElementById('statusChecker').classList.add('d-none');
+        // Get and validate form values
+        const phone = document.getElementById('phone').value.replace(/\D/g, '').substring(0, 12);
+        const amount = document.getElementById('amount').value;
+        const reference = document.getElementById('reference').value.substring(0, 20);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Validate inputs
+        if (!phone.startsWith('254') || phone.length !== 12) {
+            showError('Please enter a valid Safaricom number (254XXXXXXXXX)');
+            resetButton();
+            isProcessing = false;
+            return;
+        }
+        
+        if (!amount || isNaN(amount) || parseFloat(amount) < 1) {
+            showError('Please enter a valid amount (minimum 1 KES)');
+            resetButton();
+            isProcessing = false;
+            return;
+        }
+        
+        try {
+            const response = await fetch("{% url 'stk_push' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: new URLSearchParams({
+                    'phone': phone,
+                    'amount': amount,
+                    'reference': reference,
+                    'csrfmiddlewaretoken': csrfToken
+                })
+            });
             
-            const responseDiv = document.getElementById('responseMessage');
+            const data = await response.json();
             
             if (data.status === 'success') {
                 responseDiv.innerHTML = `
                     <div class="alert alert-success">
-                        <h5>✅ Payment Successful!</h5>
-                        <p>Your payment has been processed successfully.</p>
-                        <p class="small">${data.message || 'Thank you for your payment'}</p>
-                        <button onclick="window.location.reload()" class="btn btn-sm btn-success">
-                            Make Another Payment
-                        </button>
+                        <h5>✅ Payment Request Sent!</h5>
+                        <p>Check your phone <strong>${phone}</strong></p>
+                        <p>Amount: <strong>KES ${amount}</strong></p>
+                        <p class="small">${data.customer_message || 'Check your phone for STK push'}</p>
                     </div>
                 `;
-            } else if (data.status === 'cancelled') {
-                responseDiv.innerHTML = `
-                    <div class="alert alert-warning">
-                        <h5>⚠️ Transaction Cancelled</h5>
-                        <p>The transaction was cancelled by the user.</p>
-                        <p class="small">${data.message || 'You cancelled the payment request'}</p>
-                        <button onclick="window.location.reload()" class="btn btn-sm btn-warning">
-                            Try Again
-                        </button>
-                    </div>
-                `;
-            } else if (data.status === 'failed') {
-                responseDiv.innerHTML = `
-                    <div class="alert alert-danger">
-                        <h5>❌ Payment Failed</h5>
-                        <p>${data.message || 'The payment request failed. Please try again.'}</p>
-                        <button onclick="window.location.reload()" class="btn btn-sm btn-danger">
-                            Try Again
-                        </button>
-                    </div>
-                `;
+                
+                // Store the checkout request ID and start checking status
+                currentCheckoutRequestId = data.checkout_request_id;
+                startStatusChecking();
+                
+            } else {
+                showError(data.message || 'Payment request failed. Please try again.');
             }
-            
-            // Reset the checkout request ID
-            currentCheckoutRequestId = null;
+        } catch (error) {
+            showError('Network error - please check your connection and try again');
+            console.error('Payment error:', error);
+        } finally {
+            resetButton();
+            isProcessing = false;
+            submitBtn.disabled = false;
         }
-    } catch (error) {
-        console.error('Error checking payment status:', error);
-    }
-}   
+    });
+
     function startStatusChecking() {
         // Clear any existing interval
         clearInterval(statusCheckInterval);
         
-        // Check immediately first
+        // First check immediately
         checkPaymentStatus();
         
         // Then check every 5 seconds
         statusCheckInterval = setInterval(checkPaymentStatus, 5000);
-    }
-    
-    async function checkPaymentStatus() {
-        try {
-            const response = await fetch("{% url 'check_status' %}");
-            const data = await response.json();
-            
-            if (data.status) {
-                // Stop checking once we have a status
+        
+        // Auto-stop after 10 minutes (600,000ms)
+        setTimeout(() => {
+            if (statusCheckInterval) {
                 clearInterval(statusCheckInterval);
                 document.getElementById('statusChecker').classList.add('d-none');
                 
                 const responseDiv = document.getElementById('responseMessage');
-                
-                if (data.status === 'success') {
-                    responseDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <h5>✅ Payment Successful!</h5>
-                            <p>Your payment has been processed successfully.</p>
-                            <p class="small">${data.message || 'Thank you for your payment'}</p>
-                            <button onclick="window.location.reload()" class="btn btn-sm btn-success">
-                                Make Another Payment
-                            </button>
-                        </div>
-                    `;
-                } else if (data.status === 'cancelled') {
-                    responseDiv.innerHTML = `
-                        <div class="alert alert-warning">
-                            <h5>⚠️ Transaction Cancelled</h5>
-                            <p>The transaction was cancelled by the user.</p>
-                            <p class="small">${data.message || 'You cancelled the payment request'}</p>
-                            <button onclick="window.location.reload()" class="btn btn-sm btn-warning">
-                                Try Again
-                            </button>
-                        </div>
-                    `;
-                } else if (data.status === 'failed') {
-                    responseDiv.innerHTML = `
-                        <div class="alert alert-danger">
-                            <h5>❌ Payment Failed</h5>
-                            <p>${data.message || 'The payment request failed. Please try again.'}</p>
-                            <button onclick="window.location.reload()" class="btn btn-sm btn-danger">
-                                Try Again
-                            </button>
-                        </div>
-                    `;
+                if (!responseDiv.innerHTML.includes('Successful') && 
+                    !responseDiv.innerHTML.includes('Cancelled') && 
+                    !responseDiv.innerHTML.includes('Failed')) {
+                    showError('Payment status check timed out. Please verify payment manually.');
                 }
+            }
+        }, 600000);
+    }
+
+    async function checkPaymentStatus() {
+        if (!currentCheckoutRequestId) return;
+        
+        try {
+            const response = await fetch(`{% url 'check_status' %}?checkout_request_id=${currentCheckoutRequestId}`);
+            const data = await response.json();
+            
+            if (data.status && data.status !== 'pending') {
+                // Final status received - stop checking
+                clearInterval(statusCheckInterval);
+                document.getElementById('statusChecker').classList.add('d-none');
+                
+                updatePaymentStatusUI(data);
+                
+                // Reset the checkout request ID
+                currentCheckoutRequestId = null;
             }
         } catch (error) {
             console.error('Error checking payment status:', error);
         }
     }
-    
+
+    function updatePaymentStatusUI(data) {
+        const responseDiv = document.getElementById('responseMessage');
+        
+        if (data.status === 'success') {
+            responseDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5>✅ Payment Successful!</h5>
+                    <p>Your payment has been processed successfully.</p>
+                    <p class="small">${data.message || 'Thank you for your payment'}</p>
+                    <button onclick="window.location.reload()" class="btn btn-sm btn-success">
+                        Make Another Payment
+                    </button>
+                </div>
+            `;
+        } else if (data.status === 'cancelled') {
+            responseDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <h5>⚠️ Transaction Cancelled</h5>
+                    <p>The transaction was cancelled by the user.</p>
+                    <p class="small">${data.message || 'You cancelled the payment request'}</p>
+                    <button onclick="window.location.reload()" class="btn btn-sm btn-warning">
+                        Try Again
+                    </button>
+                </div>
+            `;
+        } else if (data.status === 'failed') {
+            responseDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5>❌ Payment Failed</h5>
+                    <p>${data.message || 'The payment request failed. Please try again.'}</p>
+                    <button onclick="window.location.reload()" class="btn btn-sm btn-danger">
+                        Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
+
     function showError(message) {
         const responseDiv = document.getElementById('responseMessage');
         responseDiv.innerHTML = `
             <div class="alert alert-danger">
-                <h5>⚠️ Payment Failed</h5>
+                <h5>⚠️ Error</h5>
                 <p>${message}</p>
                 <button onclick="window.location.reload()" class="btn btn-sm btn-outline-danger">
                     Try Again
@@ -448,12 +420,12 @@ async function checkPaymentStatus() {
             </div>
         `;
     }
-    
+
     function resetButton() {
         document.getElementById('btnText').textContent = 'Request MPesa Prompt';
         document.getElementById('spinner').classList.add('d-none');
     }
-    
+
     // Auto-format phone number
     document.getElementById('phone').addEventListener('input', function(e) {
         let value = e.target.value.replace(/\D/g, '');
