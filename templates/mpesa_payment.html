@@ -13,6 +13,7 @@
             --secondary-color: #2575fc;
             --success-color: #28a745;
             --danger-color: #dc3545;
+            --warning-color: #ffc107;
             --light-color: #f8f9fa;
             --dark-color: #343a40;
         }
@@ -150,11 +151,27 @@
             border-color: rgba(220, 53, 69, 0.2);
         }
         
+        .alert-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-color: rgba(255, 193, 7, 0.2);
+        }
+        
         .btn-sm {
             padding: 5px 15px;
             font-size: 0.85rem;
             border-radius: 6px;
             margin-top: 10px;
+        }
+        
+        .status-checker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .status-checker .spinner-border {
+            margin-right: 10px;
         }
         
         @media (max-width: 576px) {
@@ -176,7 +193,7 @@
                 <h3>Alvo The Boss Payment</h3>
             </div>
             
-            <form id="paymentForm" method="POST" action="{% url 'stk_push' %}">
+            <form id="paymentForm" method="POST">
                 {% csrf_token %}
                 <div class="mb-4">
                     <label for="phone" class="form-label">Phone Number (254XXXXXXXXX)</label>
@@ -205,12 +222,17 @@
             </form>
             
             <div id="responseMessage" class="mt-4"></div>
+            <div id="statusChecker" class="status-checker d-none">
+                <div class="spinner-border spinner-border-sm text-primary"></div>
+                <small class="text-muted">Checking payment status...</small>
+            </div>
         </div>
     </div>
 
     <script>
     // Track if a request is already in progress
     let isProcessing = false;
+    let statusCheckInterval = null;
 
     document.getElementById('paymentForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -237,9 +259,12 @@
         const reference = document.getElementById('reference').value.substring(0, 20);
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         const responseDiv = document.getElementById('responseMessage');
+        const statusChecker = document.getElementById('statusChecker');
         
-        // Clear previous messages
-        responseDiv.innerHTML = '<div class="text-center my-3"><div class="spinner-border text-primary"></div></div>';
+        // Clear previous messages and stop any existing status checks
+        clearInterval(statusCheckInterval);
+        responseDiv.innerHTML = '';
+        statusChecker.classList.add('d-none');
         
         // Validation
         if (!phone.startsWith('254') || phone.length !== 12) {
@@ -282,14 +307,14 @@
                         <p>Check your phone <strong>${phone}</strong></p>
                         <p>Amount: <strong>KES ${amount}</strong></p>
                         <p class="small">${data.CustomerMessage || 'Check your phone for STK push'}</p>
-                        <button onclick="window.location.reload()" class="btn btn-sm btn-success">
-                            Send Another Payment
-                        </button>
                     </div>
                 `;
                 
-                // Reset form after successful submission
-                e.target.reset();
+                // Show status checker
+                statusChecker.classList.remove('d-none');
+                
+                // Start checking payment status
+                startStatusChecking();
             } else {
                 showError(data.message || 'Payment request failed. Please try again.');
             }
@@ -302,6 +327,68 @@
             submitBtn.disabled = false;
         }
     });
+    
+    function startStatusChecking() {
+        // Clear any existing interval
+        clearInterval(statusCheckInterval);
+        
+        // Check immediately first
+        checkPaymentStatus();
+        
+        // Then check every 5 seconds
+        statusCheckInterval = setInterval(checkPaymentStatus, 5000);
+    }
+    
+    async function checkPaymentStatus() {
+        try {
+            const response = await fetch("{% url 'check_status' %}");
+            const data = await response.json();
+            
+            if (data.status) {
+                // Stop checking once we have a status
+                clearInterval(statusCheckInterval);
+                document.getElementById('statusChecker').classList.add('d-none');
+                
+                const responseDiv = document.getElementById('responseMessage');
+                
+                if (data.status === 'success') {
+                    responseDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h5>✅ Payment Successful!</h5>
+                            <p>Your payment has been processed successfully.</p>
+                            <p class="small">${data.message || 'Thank you for your payment'}</p>
+                            <button onclick="window.location.reload()" class="btn btn-sm btn-success">
+                                Make Another Payment
+                            </button>
+                        </div>
+                    `;
+                } else if (data.status === 'cancelled') {
+                    responseDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <h5>⚠️ Transaction Cancelled</h5>
+                            <p>The transaction was cancelled by the user.</p>
+                            <p class="small">${data.message || 'You cancelled the payment request'}</p>
+                            <button onclick="window.location.reload()" class="btn btn-sm btn-warning">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                } else if (data.status === 'failed') {
+                    responseDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5>❌ Payment Failed</h5>
+                            <p>${data.message || 'The payment request failed. Please try again.'}</p>
+                            <button onclick="window.location.reload()" class="btn btn-sm btn-danger">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error checking payment status:', error);
+        }
+    }
     
     function showError(message) {
         const responseDiv = document.getElementById('responseMessage');
