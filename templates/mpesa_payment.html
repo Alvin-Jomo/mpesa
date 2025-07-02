@@ -232,102 +232,148 @@
     <script>
     // Track if a request is already in progress
     let isProcessing = false;
-    let statusCheckInterval = null;
+    // Track the current checkout request ID
+let currentCheckoutRequestId = null;
 
-    document.getElementById('paymentForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
+document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (isProcessing) return;
+    isProcessing = true;
+    
+    // UI Loading state
+    const btnText = document.getElementById('btnText');
+    const spinner = document.getElementById('spinner');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    btnText.textContent = 'Processing...';
+    spinner.classList.remove('d-none');
+    submitBtn.disabled = true;
+    
+    // Clear previous messages
+    const responseDiv = document.getElementById('responseMessage');
+    responseDiv.innerHTML = '';
+    document.getElementById('statusChecker').classList.add('d-none');
+    
+    // Get form values
+    const phone = document.getElementById('phone').value.replace(/\D/g, '').substring(0, 12);
+    const amount = document.getElementById('amount').value;
+    const reference = document.getElementById('reference').value.substring(0, 20);
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    try {
+        const response = await fetch("{% url 'stk_push' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
+            },
+            body: new URLSearchParams({
+                'phone': phone,
+                'amount': amount,
+                'reference': reference,
+                'csrfmiddlewaretoken': csrfToken
+            })
+        });
         
-        // Prevent multiple submissions
-        if (isProcessing) {
-            return;
-        }
+        const data = await response.json();
         
-        // Set processing flag
-        isProcessing = true;
-        
-        // Show loading state
-        const btnText = document.getElementById('btnText');
-        const spinner = document.getElementById('spinner');
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        btnText.textContent = 'Processing...';
-        spinner.classList.remove('d-none');
-        submitBtn.disabled = true;
-        
-        // Get form values
-        const phone = document.getElementById('phone').value.replace(/\D/g, '').substring(0, 12);
-        const amount = document.getElementById('amount').value;
-        const reference = document.getElementById('reference').value.substring(0, 20);
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const responseDiv = document.getElementById('responseMessage');
-        const statusChecker = document.getElementById('statusChecker');
-        
-        // Clear previous messages and stop any existing status checks
-        clearInterval(statusCheckInterval);
-        responseDiv.innerHTML = '';
-        statusChecker.classList.add('d-none');
-        
-        // Validation
-        if (!phone.startsWith('254') || phone.length !== 12) {
-            showError('Please enter a valid Safaricom number (254XXXXXXXXX)');
-            resetButton();
-            isProcessing = false;
-            submitBtn.disabled = false;
-            return;
-        }
-        
-        if (!amount || isNaN(amount) || parseFloat(amount) < 1) {
-            showError('Please enter a valid amount (minimum 1 KES)');
-            resetButton();
-            isProcessing = false;
-            submitBtn.disabled = false;
-            return;
-        }
-        
-        try {
-            const response = await fetch("{% url 'stk_push' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': csrfToken
-                },
-                body: new URLSearchParams({
-                    'phone': phone,
-                    'amount': amount,
-                    'reference': reference,
-                    'csrfmiddlewaretoken': csrfToken
-                })
-            });
+        if (data.status === 'success') {
+            responseDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5>✅ Payment Request Sent!</h5>
+                    <p>Check your phone <strong>${phone}</strong></p>
+                    <p>Amount: <strong>KES ${amount}</strong></p>
+                    <p class="small">${data.CustomerMessage || 'Check your phone for STK push'}</p>
+                </div>
+            `;
             
-            const data = await response.json();
+            // Store the checkout request ID
+            currentCheckoutRequestId = data.CheckoutRequestID;
+            
+            // Show status checker and start checking
+            document.getElementById('statusChecker').classList.remove('d-none');
+            startStatusChecking();
+        } else {
+            showError(data.message || 'Payment request failed. Please try again.');
+        }
+    } catch (error) {
+        showError('Network error - please try again');
+        console.error('Payment error:', error);
+    } finally {
+        resetButton();
+        isProcessing = false;
+        submitBtn.disabled = false;
+    }
+});
+
+function startStatusChecking() {
+    // Clear any existing interval
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+    }
+    
+    // First check immediately
+    checkPaymentStatus();
+    
+    // Then check every 5 seconds (adjust as needed)
+    statusCheckInterval = setInterval(checkPaymentStatus, 5000);
+}
+
+async function checkPaymentStatus() {
+    if (!currentCheckoutRequestId) return;
+    
+    try {
+        const response = await fetch(`{% url 'check_status' %}?checkout_request_id=${currentCheckoutRequestId}`);
+        const data = await response.json();
+        
+        if (data.status && data.status !== 'pending') {
+            // We have a final status - stop checking
+            clearInterval(statusCheckInterval);
+            document.getElementById('statusChecker').classList.add('d-none');
+            
+            const responseDiv = document.getElementById('responseMessage');
             
             if (data.status === 'success') {
                 responseDiv.innerHTML = `
                     <div class="alert alert-success">
-                        <h5>✅ Payment Request Sent!</h5>
-                        <p>Check your phone <strong>${phone}</strong></p>
-                        <p>Amount: <strong>KES ${amount}</strong></p>
-                        <p class="small">${data.CustomerMessage || 'Check your phone for STK push'}</p>
+                        <h5>✅ Payment Successful!</h5>
+                        <p>Your payment has been processed successfully.</p>
+                        <p class="small">${data.message || 'Thank you for your payment'}</p>
+                        <button onclick="window.location.reload()" class="btn btn-sm btn-success">
+                            Make Another Payment
+                        </button>
                     </div>
                 `;
-                
-                // Show status checker
-                statusChecker.classList.remove('d-none');
-                
-                // Start checking payment status
-                startStatusChecking();
-            } else {
-                showError(data.message || 'Payment request failed. Please try again.');
+            } else if (data.status === 'cancelled') {
+                responseDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <h5>⚠️ Transaction Cancelled</h5>
+                        <p>The transaction was cancelled by the user.</p>
+                        <p class="small">${data.message || 'You cancelled the payment request'}</p>
+                        <button onclick="window.location.reload()" class="btn btn-sm btn-warning">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+            } else if (data.status === 'failed') {
+                responseDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>❌ Payment Failed</h5>
+                        <p>${data.message || 'The payment request failed. Please try again.'}</p>
+                        <button onclick="window.location.reload()" class="btn btn-sm btn-danger">
+                            Try Again
+                        </button>
+                    </div>
+                `;
             }
-        } catch (error) {
-            showError('Network error - please try again');
-            console.error('Payment error:', error);
-        } finally {
-            resetButton();
-            isProcessing = false;
-            submitBtn.disabled = false;
+            
+            // Reset the checkout request ID
+            currentCheckoutRequestId = null;
         }
-    });
-    
+    } catch (error) {
+        console.error('Error checking payment status:', error);
+    }
+}   
     function startStatusChecking() {
         // Clear any existing interval
         clearInterval(statusCheckInterval);

@@ -1,13 +1,14 @@
-from django.urls import path, include
+from django.urls import path
 from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('daraja/stk-push', views.stk_push_callback, name='mpesa_stk_push_callback'),
     path('stk-push/', views.stk_push, name='stk_push'),
-    path('callback', views.stk_push_callback, name='stk_push_callback'),
-    path('check_status', views.check_status, name='check_status'),
+    path('callback/', views.stk_push_callback, name='stk_push_callback'),
+    path('check-status/', views.check_status, name='check_status'),
     
+    # You can remove the duplicate daraja/stk-push if not needed
+    # path('daraja/stk-push', views.stk_push_callback, name='mpesa_stk_push_callback'),
 ]
 
 # Note: Ensure that the paths in your views match the actual view functions defined in your views.py file.
