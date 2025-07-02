@@ -118,35 +118,25 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# M-Pesa Configuration
 MPESA_ENVIRONMENT = 'sandbox'
-
 MPESA_CONSUMER_KEY = '8jwQ3NNOFAoAx0pTQk9J6k52Gu8LDMAmHnFIA0mzjxfsN8GZ'
 MPESA_CONSUMER_SECRET = '5tZG1nuhttq8ByUnOA8r8XGUKUsvXMFrcNUAuCMykdk5irTbmkQXuj4OfqmMteuH'
-
-
 MPESA_SHORTCODE = '174379'
-
 MPESA_EXPRESS_SHORTCODE = '174379'
-
-
 MPESA_SHORTCODE_TYPE = 'paybill'
-
 MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-
-# Username for initiator (to be used in B2C, B2B, AccountBalance and TransactionStatusQuery Transactions)
-
 MPESA_INITIATOR_USERNAME = 'testapi'
-
-# Plaintext password for initiator (to be used in B2C, B2B, AccountBalance and TransactionStatusQuery Transactions)
-
 MPESA_INITIATOR_SECURITY_CREDENTIAL = 'Safaricom123!!'
-
 MPESA_CALLBACK_URL = 'https://mpesa-ifvv.onrender.com/callback/'
-  # Replace with your actual callback URL
 
+# Cache configuration
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 15,  # 5 minutes
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
     }
 }
