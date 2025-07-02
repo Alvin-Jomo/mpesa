@@ -31,7 +31,7 @@ def stk_push(request):
             
             account_reference = request.POST.get('reference', 'Payment')
             transaction_desc = 'Customer Payment'
-            callback_url = 'https://yourdomain.com/stk-callback'  # Update with your callback URL
+            callback_url = 'https://mpesa-ifvv.onrender.com/stk-callback'  # Update with your callback URL
             
             response = cl.stk_push(phone_number, amount, account_reference, transaction_desc, callback_url)
             
