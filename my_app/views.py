@@ -6,6 +6,11 @@ from django.views.decorators.http import require_GET, require_POST
 from django_daraja.mpesa.core import MpesaClient
 from django.core.cache import cache
 
+def index(request):
+    """
+    Render the index page with a simple form for M-Pesa STK push.
+    """
+    return render(request, 'mpesa_payment.html')
 
 @csrf_exempt
 @require_POST
