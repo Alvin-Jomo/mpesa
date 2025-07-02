@@ -120,8 +120,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MPESA_ENVIRONMENT = 'sandbox'
 
-MPESA_CONSUMER_KEY = 'nk16Y74eSbTaGQgc9WF8j6FigApqOMWr'
-MPESA_CONSUMER_SECRET = '40fD1vRXCq90XFaU'
+MPESA_CONSUMER_KEY = '8jwQ3NNOFAoAx0pTQk9J6k52Gu8LDMAmHnFIA0mzjxfsN8GZ'
+MPESA_CONSUMER_SECRET = '5tZG1nuhttq8ByUnOA8r8XGUKUsvXMFrcNUAuCMykdk5irTbmkQXuj4OfqmMteuH'
 
 
 MPESA_SHORTCODE = '174379'
@@ -139,9 +139,10 @@ MPESA_INITIATOR_USERNAME = 'testapi'
 
 # Plaintext password for initiator (to be used in B2C, B2B, AccountBalance and TransactionStatusQuery Transactions)
 
-MPESA_INITIATOR_SECURITY_CREDENTIAL = 'Safaricom999!*!'
+MPESA_INITIATOR_SECURITY_CREDENTIAL = 'Safaricom123!!'
 
-MPESA_CALLBACK_URL = 'https://mpesa-ifvv.onrender.com/callback'  # Replace with your actual callback URL
+MPESA_CALLBACK_URL = 'https://mpesa-ifvv.onrender.com/callback/'
+  # Replace with your actual callback URL
 
 CACHES = {
     'default': {
